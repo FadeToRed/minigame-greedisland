@@ -439,9 +439,9 @@ function announceDrawInTopic(card, owned, isMalus, cb) {
 
     var html = buildDrawPostHTML(card, owned, isMalus);
 
-    // DEBUG TEMPORANEO (da rimuovere): ispeziona cosa c'è subito dopo
-    // "[Rank S" nella stringa generata, per capire se il soft hyphen è
-    // già presente al momento della generazione o viene aggiunto dopo.
+    // DEBUG TEMPORANEO (da rimuovere): mostra in un alert cosa c'è subito
+    // dopo "[Rank S" nella stringa generata. L'alert blocca il flusso, così
+    // il risultato è leggibile prima del reload.
     (function() {
         var idx = html.indexOf('[Rank S');
         if (idx !== -1) {
@@ -450,11 +450,12 @@ function announceDrawInTopic(card, owned, isMalus, cb) {
             for (var j = 0; j < frammento.length; j++) {
                 codes.push(frammento.charCodeAt(j));
             }
-            console.log('[GreedIsland DEBUG] frammento dopo [Rank S:', JSON.stringify(frammento));
-            console.log('[GreedIsland DEBUG] codici carattere:', codes.join(','));
-            console.log('[GreedIsland DEBUG] soft hyphen (173) presente:', codes.indexOf(173) !== -1);
-        } else {
-            console.log('[GreedIsland DEBUG] "[Rank S" non trovato (carta non di rank S)');
+            alert(
+                'DEBUG rank S\n\n' +
+                'Frammento: "' + frammento + '"\n\n' +
+                'Codici carattere: ' + codes.join(', ') + '\n\n' +
+                'Soft hyphen (173) presente: ' + (codes.indexOf(173) !== -1 ? 'SI' : 'NO')
+            );
         }
     })();
 
