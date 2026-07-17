@@ -33,7 +33,7 @@ var CARD_BACK = GREED.CARD_BACK; // retro carta, per l'animazione di pesca
 
 // Icona SVG del bottone "Pesca carta" (simbolo Greed Island).
 // fill:currentColor -> eredita il colore del testo del bottone.
-var DRAW_ICON_SVG = '<svg viewBox="0 0 151.6 150.2" width="22" height="22" style="display:block;fill:currentColor;" xmlns="http://www.w3.org/2000/svg"><polygon points="75.7,0.2 65.2,22.6 86.1,22.6"/><polygon points="86.2,127.7 75.8,150.2 65.3,127.7"/><polygon points="129.1,64.7 151.6,75 129.1,85.5"/><polygon points="22.4,64.7 0,75 22.4,85.5"/><path d="M75.8,26.9c-26.6,0-48.2,21.6-48.2,48.2c0,26.6,21.6,48.2,48.2,48.2c26.6,0,48.2-21.6,48.2-48.2C123.9,48.5,102.4,26.9,75.8,26.9z M75.8,115.8c-22.5,0-40.7-18.2-40.7-40.7c0-22.5,18.2-40.7,40.7-40.7c22.5,0,40.7,18.2,40.7,40.7C116.5,97.6,98.3,115.8,75.8,115.8z"/><path d="M75.5,40.9c-18.8,0-34.1,15.3-34.1,34.1s15.3,34.1,34.1,34.1c18.8,0,34.1-15.3,34.1-34.1S94.3,40.9,75.5,40.9z M75.7,102C60.8,102,48.7,89.9,48.7,75s12.1-27.1,27.1-27.1c14.9,0,27.1,12.1,27.1,27.1S90.7,102,75.7,102z"/><circle cx="75.4" cy="75" r="17.4"/></svg>';
+var DRAW_ICON_SVG = '<svg viewBox="0 0 151.6 150.2" width="28" height="28" style="display:block;fill:currentColor;" xmlns="http://www.w3.org/2000/svg"><polygon points="75.7,0.2 65.2,22.6 86.1,22.6"/><polygon points="86.2,127.7 75.8,150.2 65.3,127.7"/><polygon points="129.1,64.7 151.6,75 129.1,85.5"/><polygon points="22.4,64.7 0,75 22.4,85.5"/><path d="M75.8,26.9c-26.6,0-48.2,21.6-48.2,48.2c0,26.6,21.6,48.2,48.2,48.2c26.6,0,48.2-21.6,48.2-48.2C123.9,48.5,102.4,26.9,75.8,26.9z M75.8,115.8c-22.5,0-40.7-18.2-40.7-40.7c0-22.5,18.2-40.7,40.7-40.7c22.5,0,40.7,18.2,40.7,40.7C116.5,97.6,98.3,115.8,75.8,115.8z"/><path d="M75.5,40.9c-18.8,0-34.1,15.3-34.1,34.1s15.3,34.1,34.1,34.1c18.8,0,34.1-15.3,34.1-34.1S94.3,40.9,75.5,40.9z M75.7,102C60.8,102,48.7,89.9,48.7,75s12.1-27.1,27.1-27.1c14.9,0,27.1,12.1,27.1,27.1S90.7,102,75.7,102z"/><circle cx="75.4" cy="75" r="17.4"/></svg>';
 var RANK_WEIGHTS = GREED.RANK_WEIGHTS;
 
 // Costruisce l'URL immagine di una carta dal suo numero.
@@ -386,12 +386,22 @@ function drawCard(onDone) {
                 // 6. Aggiorna lastDrawUserId (anche il malus "consuma" il turno).
                 fbPut('/greedisland/meta/lastDrawUserId', USER.id, function() {
                     var owned = countOwned(player);
-                    // 7. Mostra l'animazione della carta pescata; al termine
-                    //    posta nel topic e completa (che farà partire il reload).
+
+                    // 7. Post e animazione IN PARALLELO:
+                    //    - il post parte subito, così ForumFree ha tutto il
+                    //      tempo dell'animazione per registrarlo (altrimenti
+                    //      #lastpost punterebbe al post precedente al nostro);
+                    //    - l'animazione scorre;
+                    //    - a fine ANIMAZIONE si completa (-> reload), a
+                    //      prescindere dall'esito del post: la carta e' gia'
+                    //      salvata su Firebase, quindi non si perde nulla.
+                    announceDrawInTopic(card, owned, isMalus, function() {
+                        // post concluso (o loggato): nessuna azione, il reload
+                        // e' guidato dalla fine dell'animazione qui sotto.
+                    });
+
                     playDrawAnimation(card, isMalus, function() {
-                        announceDrawInTopic(card, owned, isMalus, function() {
-                            onDone({ ok: true, card: card, isNew: isNew, owned: owned, isMalus: isMalus });
-                        });
+                        onDone({ ok: true, card: card, isNew: isNew, owned: owned, isMalus: isMalus });
                     });
                 });
             });
@@ -572,15 +582,15 @@ function onDrawClick() {
             return;
         }
 
-        // Successo: il post è stato pubblicato. Ricostruiamo l'URL pulito
-        // del topic con l'anchor #lastpost e forziamo una navigazione
-        // completa con replace(), così si viene portati all'ultimo post
-        // anche se l'URL corrente aveva già un hash.
+        // Successo. Il post è partito all'inizio dell'animazione, quindi
+        // ForumFree ha già avuto tutta la durata dell'animazione (~5s) per
+        // registrarlo: ora #lastpost punta correttamente al nostro post.
+        // Ricarichiamo subito alla #lastpost.
         el.drawBtn._label.textContent = 'Fatto!';
         var topicUrl = 'https://' + location.hostname + '/?t=' + CONFIG.TOPIC_ID + '#lastpost';
         location.replace(topicUrl);
-        // Fallback: se per qualche motivo replace() non ricarica
-        // (stesso URL + stesso hash), forziamo comunque il reload.
+        // Fallback: se replace() non ricarica (stesso URL + stesso hash),
+        // forziamo comunque il reload.
         location.reload();
     });
 }
