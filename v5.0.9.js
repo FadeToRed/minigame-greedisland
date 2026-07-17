@@ -278,9 +278,15 @@ function cardName(card) {
 /**
  * Rank leggibile: le carte usano il loro rank; il malus non ha un
  * vero rank e mostra "Game Master".
+ * Il valore di card.rank arriva dal config incollato nel forum: se
+ * ForumFree ci ha iniettato caratteri invisibili (es. soft hyphen dopo
+ * la "S"), li rimuoviamo tenendo solo lettere e spazi.
  */
 function cardRankLabel(card) {
-    return card.rank ? card.rank : 'Game Master';
+    if (!card.rank) return 'Game Master';
+    // Prima toglie eventuali entity HTML (es. il testo "&shy;"), poi
+    // tiene solo lettere A-Z e spazi (elimina soft hyphen e altri residui).
+    return String(card.rank).replace(/&[a-z]+;/gi, '').replace(/[^A-Za-z ]/g, '');
 }
 
 /**
@@ -438,26 +444,6 @@ function announceDrawInTopic(card, owned, isMalus, cb) {
     }
 
     var html = buildDrawPostHTML(card, owned, isMalus);
-
-    // DEBUG TEMPORANEO (da rimuovere): mostra in un alert cosa c'è subito
-    // dopo "[Rank S" nella stringa generata. L'alert blocca il flusso, così
-    // il risultato è leggibile prima del reload.
-    (function() {
-        var idx = html.indexOf('[Rank S');
-        if (idx !== -1) {
-            var frammento = html.substr(idx, 12);
-            var codes = [];
-            for (var j = 0; j < frammento.length; j++) {
-                codes.push(frammento.charCodeAt(j));
-            }
-            alert(
-                'DEBUG rank S\n\n' +
-                'Frammento: "' + frammento + '"\n\n' +
-                'Codici carattere: ' + codes.join(', ') + '\n\n' +
-                'Soft hyphen (173) presente: ' + (codes.indexOf(173) !== -1 ? 'SI' : 'NO')
-            );
-        }
-    })();
 
     FW.requests.fetchToken(function(token) {
         if (!token) { console.error('[GreedIsland] token non recuperato'); cb(); return; }
