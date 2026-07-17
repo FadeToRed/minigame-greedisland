@@ -865,7 +865,7 @@ function playDrawAnimation(card, isMalus, done) {
 
     // Contenitore con prospettiva 3D per il flip.
     var stage = document.createElement('div');
-    stage.style.cssText = 'perspective:1000px;width:200px;height:280px;position:relative;';
+    stage.style.cssText = 'perspective:1200px;width:280px;height:392px;position:relative;';
 
     // La carta: un contenitore che ruota, con due facce (fronte/retro).
     var flipper = document.createElement('div');
@@ -904,15 +904,15 @@ function playDrawAnimation(card, isMalus, done) {
         }
     }, 2000);
 
-    // Fase 3: dopo che l'utente ha visto la carta ingrandita (~1.3s),
+    // Fase 3: dopo che l'utente ha visto la carta ingrandita (~2.3s),
     // dissolvi l'overlay e chiama done() (che farà partire post + reload).
     setTimeout(function() {
         overlay.style.animation = 'gi-fade-out .5s ease-in forwards';
-    }, 3300);
+    }, 4300);
     setTimeout(function() {
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
         done();
-    }, 3800);
+    }, 4800);
 }
 
 /**
