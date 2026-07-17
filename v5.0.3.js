@@ -584,14 +584,14 @@ function onDrawClick() {
 
         // Successo. Il post è partito all'inizio dell'animazione, quindi
         // ForumFree ha già avuto tutta la durata dell'animazione (~5s) per
-        // registrarlo: ora #newpost punta correttamente al nostro post.
-        // Ricarichiamo subito alla #newpost.
+        // registrarlo. Per portarci all'ultimo post usiamo il formato
+        // server-side di ForumFree "view=getlastpost": a differenza di un
+        // semplice #anchor, questo calcola lato server la PAGINA giusta del
+        // topic (i topic multi-pagina altrimenti si aprono sulla pagina 1,
+        // dove l'anchor non trova nulla e si finisce "a metà").
         el.drawBtn._label.textContent = 'Fatto!';
-        var topicUrl = 'https://' + location.hostname + '/?t=' + CONFIG.TOPIC_ID + '#newpost';
+        var topicUrl = 'https://' + location.hostname + '/?t=' + CONFIG.TOPIC_ID + '&view=getlastpost';
         location.replace(topicUrl);
-        // Fallback: se replace() non ricarica (stesso URL + stesso hash),
-        // forziamo comunque il reload.
-        location.reload();
     });
 }
 
