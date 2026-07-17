@@ -295,20 +295,12 @@ function cardLabel(card) {
 }
 
 /**
- * Versione HTML dell'etichetta, per i POST.
- * ForumFree, quando pubblica il post, inserisce un soft hyphen (&shy;)
- * subito dopo il rank "S" isolato prima della "]" (sua sillabazione
- * automatica). Per impedirlo inseriamo uno ZERO-WIDTH SPACE (&#8203;,
- * invisibile e senza larghezza) tra il rank e la "]": così la sequenza
- * "S]" che ForumFree riconosce non esiste più, ma il testo appare identico.
- * Il nome viene passato in escapeHTML; il resto è testo sicuro.
+ * Versione HTML dell'etichetta per i POST.
+ * Il nome passa in escapeHTML; il resto è testo sicuro. Nessun trucco
+ * extra: "[Rank S]" scritto normalmente nel post non dà problemi.
  */
 function cardLabelHTML(card) {
-    var rank = cardRankLabel(card);
-    return escapeHTML('Carta #' + cardNum(card) + ' - ' + cardName(card) + ' - ') +
-        '<span style="white-space:nowrap;">' +
-            escapeHTML('[Rank ' + rank) + '&#8203;' + escapeHTML(']') +
-        '</span>';
+    return escapeHTML(cardLabel(card));
 }
 
 /**
