@@ -439,6 +439,25 @@ function announceDrawInTopic(card, owned, isMalus, cb) {
 
     var html = buildDrawPostHTML(card, owned, isMalus);
 
+    // DEBUG TEMPORANEO (da rimuovere): ispeziona cosa c'è subito dopo
+    // "[Rank S" nella stringa generata, per capire se il soft hyphen è
+    // già presente al momento della generazione o viene aggiunto dopo.
+    (function() {
+        var idx = html.indexOf('[Rank S');
+        if (idx !== -1) {
+            var frammento = html.substr(idx, 12);
+            var codes = [];
+            for (var j = 0; j < frammento.length; j++) {
+                codes.push(frammento.charCodeAt(j));
+            }
+            console.log('[GreedIsland DEBUG] frammento dopo [Rank S:', JSON.stringify(frammento));
+            console.log('[GreedIsland DEBUG] codici carattere:', codes.join(','));
+            console.log('[GreedIsland DEBUG] soft hyphen (173) presente:', codes.indexOf(173) !== -1);
+        } else {
+            console.log('[GreedIsland DEBUG] "[Rank S" non trovato (carta non di rank S)');
+        }
+    })();
+
     FW.requests.fetchToken(function(token) {
         if (!token) { console.error('[GreedIsland] token non recuperato'); cb(); return; }
         FW.requests.postComment(token, CONFIG.SECTION_ID, CONFIG.TOPIC_ID, html, function(ok) {
