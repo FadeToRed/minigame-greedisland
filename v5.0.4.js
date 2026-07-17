@@ -295,6 +295,20 @@ function cardLabel(card) {
 }
 
 /**
+ * Versione HTML dell'etichetta, per i POST. Identica a cardLabel ma con
+ * la parte "[Rank X]" avvolta in uno span white-space:nowrap. Serve a
+ * impedire che ForumFree inserisca un soft hyphen (&shy;) dopo il rank
+ * "S" isolato quando applica la sua sillabazione automatica.
+ * Il nome viene passato in escapeHTML; il resto è testo sicuro.
+ */
+function cardLabelHTML(card) {
+    return escapeHTML('Carta #' + cardNum(card) + ' - ' + cardName(card) + ' - ') +
+        '<span style="white-space:nowrap;">' +
+            escapeHTML('[Rank ' + cardRankLabel(card) + ']') +
+        '</span>';
+}
+
+/**
  * Restituisce tutte le carte collezionabili di un dato rank.
  */
 function cardsOfRank(rank) {
@@ -457,7 +471,7 @@ function buildDrawPostHTML(card, owned, isMalus) {
                     ' style="max-width:100%;height:auto;border:2px solid #a03030;border-radius:4px;">' +
                 '</div>' +
                 '<div style="text-align:center;font-size:14px;color:#f2c4c4;">' +
-                    '<b>' + escapeHTML(label) + '</b>' +
+                    '<b>' + cardLabelHTML(card) + '</b>' +
                 '</div>' +
                 '<div style="text-align:center;font-size:13px;color:#ff8080;margin-top:8px;">' +
                     'Sei stato espulso da Greed Island! Nessuna carta ottenuta.' +
@@ -478,7 +492,7 @@ function buildDrawPostHTML(card, owned, isMalus) {
                 img +
             '</div>' +
             '<div style="text-align:center;font-size:14px;color:#E2F7C4;">' +
-                '<b>' + escapeHTML(label) + '</b>' +
+                '<b>' + cardLabelHTML(card) + '</b>' +
             '</div>' +
             '<div style="text-align:center;font-size:12px;color:#8FBEBA;margin-top:8px;">' +
                 'Collezione: ' + owned + '/' + TOTAL_CARDS +
