@@ -584,10 +584,10 @@ function onDrawClick() {
 
         // Successo. Il post è partito all'inizio dell'animazione, quindi
         // ForumFree ha già avuto tutta la durata dell'animazione (~5s) per
-        // registrarlo: ora #lastpost punta correttamente al nostro post.
-        // Ricarichiamo subito alla #lastpost.
+        // registrarlo: ora #newpost punta correttamente al nostro post.
+        // Ricarichiamo subito alla #newpost.
         el.drawBtn._label.textContent = 'Fatto!';
-        var topicUrl = 'https://' + location.hostname + '/?t=' + CONFIG.TOPIC_ID + '#lastpost';
+        var topicUrl = 'https://' + location.hostname + '/?t=' + CONFIG.TOPIC_ID + '#newpost';
         location.replace(topicUrl);
         // Fallback: se replace() non ricarica (stesso URL + stesso hash),
         // forziamo comunque il reload.
