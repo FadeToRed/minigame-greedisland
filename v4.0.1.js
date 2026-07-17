@@ -381,10 +381,13 @@ function drawCard(onDone) {
 
                 // 6. Aggiorna lastDrawUserId (anche il malus "consuma" il turno).
                 fbPut('/greedisland/meta/lastDrawUserId', USER.id, function() {
-                    // 7. Posta nel topic.
                     var owned = countOwned(player);
-                    announceDrawInTopic(card, owned, isMalus, function() {
-                        onDone({ ok: true, card: card, isNew: isNew, owned: owned, isMalus: isMalus });
+                    // 7. Mostra l'animazione della carta pescata; al termine
+                    //    posta nel topic e completa (che farà partire il reload).
+                    playDrawAnimation(card, isMalus, function() {
+                        announceDrawInTopic(card, owned, isMalus, function() {
+                            onDone({ ok: true, card: card, isNew: isNew, owned: owned, isMalus: isMalus });
+                        });
                     });
                 });
             });
@@ -809,105 +812,145 @@ function replaceModalBody(node) {
     }
 }
 
-// ANIMAZIONE D'INGRESSO  —  mazzo che si mescola
+// ANIMAZIONE DI PESCA  —  flip carta + ingrandimento + coriandoli
 // ----------------------------------------
 
 /**
- * Mostra un'animazione: un mazzo di carte (retro) al centro che si
- * mescola per ~3.5s, poi svanisce da solo. Parte a ogni ingresso.
- * Se CARD_BACK non è definito, non fa nulla.
+ * Inietta una sola volta i keyframes usati dall'animazione di pesca.
  */
-function playShuffleIntro() {
-    if (!CARD_BACK) return;
+function ensureDrawAnimStyle() {
+    if (document.getElementById('gi-draw-style')) return;
+    var st = document.createElement('style');
+    st.id = 'gi-draw-style';
+    st.textContent =
+        '@keyframes gi-fade-out { to { opacity:0; visibility:hidden; } }' +
+        // Il "flip": ruota su Y più volte, poi si ferma sul fronte (360deg finali).
+        '@keyframes gi-flip {' +
+        '  0%   { transform: rotateY(0deg); }' +
+        '  100% { transform: rotateY(1800deg); }' +   // 5 giri completi in ~2s
+        '}' +
+        // Dopo il flip: piccolo ingrandimento "pop".
+        '@keyframes gi-pop {' +
+        '  0%   { transform: scale(1); }' +
+        '  60%  { transform: scale(1.25); }' +
+        '  100% { transform: scale(1.15); }' +
+        '}' +
+        // Coriandoli: volano verso l\'alto/lati e svaniscono. Impostati via JS.
+        '@keyframes gi-confetti {' +
+        '  0%   { opacity:1; transform: translate(0,0) rotate(0deg); }' +
+        '  100% { opacity:0; transform: translate(var(--dx), var(--dy)) rotate(var(--dr)); }' +
+        '}';
+    document.head.appendChild(st);
+}
 
-    // Inietta i keyframes una sola volta.
-    if (!document.getElementById('gi-intro-style')) {
-        var st = document.createElement('style');
-        st.id = 'gi-intro-style';
-        st.textContent =
-            '@keyframes gi-fade-out { to { opacity:0; visibility:hidden; } }' +
-            '@keyframes gi-shuffle-a {' +
-            '  0%   { transform: translate(-50%,-50%) rotate(0deg); }' +
-            '  25%  { transform: translate(-130%,-60%) rotate(-14deg); }' +
-            '  50%  { transform: translate(-50%,-50%) rotate(0deg); }' +
-            '  75%  { transform: translate(-130%,-40%) rotate(-10deg); }' +
-            '  100% { transform: translate(-50%,-50%) rotate(0deg); }' +
-            '}' +
-            '@keyframes gi-shuffle-b {' +
-            '  0%   { transform: translate(-50%,-50%) rotate(0deg); }' +
-            '  25%  { transform: translate(30%,-40%) rotate(14deg); }' +
-            '  50%  { transform: translate(-50%,-50%) rotate(0deg); }' +
-            '  75%  { transform: translate(30%,-60%) rotate(10deg); }' +
-            '  100% { transform: translate(-50%,-50%) rotate(0deg); }' +
-            '}' +
-            '@keyframes gi-intro-pop {' +
-            '  0%   { transform: scale(.6); opacity:0; }' +
-            '  100% { transform: scale(1);  opacity:1; }' +
-            '}';
-        document.head.appendChild(st);
-    }
+/**
+ * Mostra l'animazione della carta pescata e, al termine, chiama done().
+ *   - la carta gira fronte/retro per ~2s
+ *   - si ferma sul fronte e si ingrandisce
+ *   - se NON è il malus, spara coriandoli attorno
+ * Se manca CARD_BACK, salta l'animazione e chiama subito done().
+ *
+ * @param {object} card    la carta pescata (ha .img del fronte)
+ * @param {boolean} isMalus se true, niente coriandoli
+ * @param {function} done   callback di fine animazione
+ */
+function playDrawAnimation(card, isMalus, done) {
+    if (!CARD_BACK) { done(); return; }
+    ensureDrawAnimStyle();
 
     var overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;z-index:10001;' +
-        'background:rgba(10,8,20,.72);' +
-        'animation:gi-intro-pop .3s ease-out, gi-fade-out .6s ease-in 3s forwards;' +
-        'pointer-events:none;';
+        'background:rgba(10,8,20,.78);display:flex;align-items:center;' +
+        'justify-content:center;overflow:hidden;';
 
-    // Contenitore centrale del mazzo.
-    var deck = document.createElement('div');
-    deck.style.cssText = 'position:absolute;top:50%;left:50%;' +
-        'width:120px;height:168px;transform:translate(-50%,-50%);';
+    // Contenitore con prospettiva 3D per il flip.
+    var stage = document.createElement('div');
+    stage.style.cssText = 'perspective:1000px;width:200px;height:280px;position:relative;';
 
-    // Impila più copie del retro carta. Quelle centrali restano ferme,
-    // due si "staccano" e si mescolano (animazioni A e B) in loop.
-    var NCARDS = 6;
-    for (var k = 0; k < NCARDS; k++) {
-        var c = document.createElement('img');
-        c.src = CARD_BACK;
-        c.alt = '';
-        var baseStyle = 'position:absolute;top:50%;left:50%;width:120px;height:auto;' +
-            'border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.5);' +
-            'transform:translate(-50%,-50%);';
-        if (k === NCARDS - 2) {
-            // penultima: shuffle A (verso sinistra), con un piccolo ritardo
-            c.style.cssText = baseStyle +
-                'animation:gi-shuffle-a 1.15s ease-in-out .2s 2;';
-        } else if (k === NCARDS - 1) {
-            // ultima: shuffle B (verso destra)
-            c.style.cssText = baseStyle +
-                'animation:gi-shuffle-b 1.15s ease-in-out .2s 2;';
-        } else {
-            // carte del mazzo ferme, leggermente sfalsate per dare spessore
-            var off = (k - 2);
-            c.style.cssText = baseStyle.replace(
-                'translate(-50%,-50%)',
-                'translate(calc(-50% + ' + off + 'px), calc(-50% + ' + off + 'px))'
-            );
-        }
-        deck.appendChild(c);
-    }
+    // La carta: un contenitore che ruota, con due facce (fronte/retro).
+    var flipper = document.createElement('div');
+    flipper.style.cssText = 'position:relative;width:100%;height:100%;' +
+        'transform-style:preserve-3d;' +
+        'animation:gi-flip 2s ease-out forwards;';
 
-    overlay.appendChild(deck);
+    var faceStyle = 'position:absolute;top:0;left:0;width:100%;height:100%;' +
+        'backface-visibility:hidden;-webkit-backface-visibility:hidden;' +
+        'border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.6);' +
+        'background-size:cover;background-position:center;';
+
+    // Fronte: la carta pescata. Parte "davanti" (rotateY 0).
+    var front = document.createElement('div');
+    front.style.cssText = faceStyle + 'background-image:url(' + card.img + ');';
+
+    // Retro: dietro, ruotato di 180deg così appare durante i giri.
+    var back = document.createElement('div');
+    back.style.cssText = faceStyle + 'background-image:url(' + CARD_BACK + ');' +
+        'transform:rotateY(180deg);';
+
+    flipper.appendChild(front);
+    flipper.appendChild(back);
+    stage.appendChild(flipper);
+    overlay.appendChild(stage);
     document.body.appendChild(overlay);
 
-    // Rimuove del tutto l'overlay dopo la fine (3s attesa + .6s fade).
+    // Fase 2 (dopo il flip, ~2s): ferma la rotazione sul fronte, ingrandisci,
+    // e (se non malus) spara i coriandoli.
+    setTimeout(function() {
+        flipper.style.animation = 'none';
+        flipper.style.transform = 'rotateY(0deg)';
+        stage.style.animation = 'gi-pop .5s ease-out forwards';
+        if (!isMalus) {
+            spawnConfetti(overlay);
+        }
+    }, 2000);
+
+    // Fase 3: dopo che l'utente ha visto la carta ingrandita (~1.3s),
+    // dissolvi l'overlay e chiama done() (che farà partire post + reload).
+    setTimeout(function() {
+        overlay.style.animation = 'gi-fade-out .5s ease-in forwards';
+    }, 3300);
     setTimeout(function() {
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        done();
     }, 3800);
+}
+
+/**
+ * Genera un burst di coriandoli colorati attorno al centro dell'overlay.
+ */
+function spawnConfetti(overlay) {
+    var colors = ['#CFF09E', '#79BD9A', '#3B8686', '#E2F7C4', '#ffd447', '#ff8080', '#8FBEBA'];
+    var N = 40;
+    for (var i = 0; i < N; i++) {
+        var piece = document.createElement('div');
+        var size = 6 + Math.floor(Math.random() * 8);
+        var color = colors[Math.floor(Math.random() * colors.length)];
+
+        // Direzione casuale (angolo + distanza).
+        var angle = Math.random() * Math.PI * 2;
+        var dist = 120 + Math.random() * 220;
+        var dx = Math.cos(angle) * dist;
+        var dy = Math.sin(angle) * dist;
+        var dr = (Math.random() * 720 - 360);
+        var dur = 0.8 + Math.random() * 0.7;
+
+        piece.style.cssText = 'position:absolute;top:50%;left:50%;' +
+            'width:' + size + 'px;height:' + (size * 0.6) + 'px;' +
+            'background:' + color + ';border-radius:2px;' +
+            '--dx:' + dx.toFixed(0) + 'px;--dy:' + dy.toFixed(0) + 'px;' +
+            '--dr:' + dr.toFixed(0) + 'deg;' +
+            'animation:gi-confetti ' + dur.toFixed(2) + 's ease-out forwards;';
+        overlay.appendChild(piece);
+    }
 }
 
 // AVVIO
 // ----------------------------------------
 
-function startGreed() {
-    buildPanel();
-    playShuffleIntro();
-}
-
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', startGreed);
+    document.addEventListener('DOMContentLoaded', buildPanel);
 } else {
-    startGreed();
+    buildPanel();
 }
 
 console.log('[GreedIsland] Prototipo v0.1.0 avviato per ' + USER.name + ' (id ' + USER.id + ')');
